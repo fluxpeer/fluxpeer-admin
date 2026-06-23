@@ -1,0 +1,34 @@
+@import "tailwindcss";
+
+/* fluxpeer brand — dark indigo, aligned with openprx.dev (see brand/). */
+@theme {
+  --color-bg: #07080c;
+  --color-surface: #0f1220;
+  --color-surface2: #12162a;
+  --color-line: #232a44;
+  --color-fg: #f2f5ff;
+  --color-muted: #a0abc8;
+  --color-brand: #6366f1;
+  --color-brand-strong: #818cf8;
+  --color-accent: #a5b4fc;
+  --color-ok: #34d399;
+  --color-warn: #fbbf24;
+  --color-danger: #f87171;
+}
+
+html,
+body {
+  background: var(--color-bg);
+  color: var(--color-fg);
+}
+
+/* Visible keyboard focus everywhere (was missing — a11y). */
+:focus-visible {
+  outline: 2px solid var(--color-brand-strong);
+  outline-offset: 2px;
+  border-radius: 4px;
+}
+
+::placeholder {
+  color: color-mix(in oklab, var(--color-muted) 70%, transparent);
+}
