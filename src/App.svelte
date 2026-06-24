@@ -211,6 +211,23 @@
     if (!routePrefix.trim() || !drawer) return
     await guard(async () => { await api.advertiseRoute(drawer.id, routePrefix.trim()); routePrefix = ''; routes = await api.deviceRoutes(drawer.id) })
   }
+  // One-click: make this device a full-tunnel exit (advertise + approve 0.0.0.0/0).
+  // Declaring an exit is privileged, so it is an explicit admin action. Idempotent:
+  // reuse an existing 0.0.0.0/0 route, only approving if still pending.
+  let exitRoute = $derived(routes.find((r) => r.prefix === '0.0.0.0/0'))
+  async function setAsExit() {
+    if (!drawer) return
+    await guard(async () => {
+      let r = exitRoute || (await api.advertiseRoute(drawer.id, '0.0.0.0/0'))
+      if (r && r.id && !r.approved) await api.approveRoute(r.id)
+      routes = await api.deviceRoutes(drawer.id)
+      cfg = await api.deviceConfig(drawer.id)
+    })
+  }
+  async function unsetExit() {
+    if (!drawer || !exitRoute) return
+    await guard(async () => { await api.deleteRoute(exitRoute.id); routes = await api.deviceRoutes(drawer.id); cfg = await api.deviceConfig(drawer.id) })
+  }
 
   // wg showconf-style render from the control config + device record.
   function wgConf(d, c) {
@@ -537,6 +554,16 @@
             {/each}
           </ul>
         {/if}
+        <div class="mb-2 flex items-center gap-2 rounded-md border border-line bg-surface2 px-3 py-2 text-sm">
+          <span class="font-medium">{T('exitNode')}</span>
+          <span class="hidden text-xs text-muted sm:inline">{T('exitNodeHint')}</span>
+          {#if exitRoute && exitRoute.approved}
+            {@render pill(T('enabled'), 'ok')}
+            <button class="ml-auto rounded-md border border-line bg-surface px-2.5 py-1 text-xs text-danger hover:underline" onclick={unsetExit}>{T('disableExit')}</button>
+          {:else}
+            <button class="ml-auto rounded-md bg-brand px-2.5 py-1 text-xs text-white hover:bg-brand-strong" onclick={setAsExit}>{exitRoute ? T('approveExit') : T('makeExit')}</button>
+          {/if}
+        </div>
         <div class="flex gap-2">
           <input class="min-w-0 flex-1 rounded-md border border-line bg-surface px-3 py-1.5 text-sm" placeholder={T('subnetPrefix')} bind:value={routePrefix} onkeydown={(e) => e.key === 'Enter' && advertise()} />
           <button class="rounded-md border border-line bg-surface2 px-3 py-1.5 text-sm" onclick={advertise}>{T('advertiseRoute')}</button>
