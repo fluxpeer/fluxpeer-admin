@@ -559,6 +559,9 @@
           <span class="hidden text-xs text-muted sm:inline">{T('exitNodeHint')}</span>
           {#if exitRoute && exitRoute.approved}
             {@render pill(T('enabled'), 'ok')}
+            {#if cfg && typeof cfg.self_exit === 'boolean'}
+              <span class="text-xs {cfg.self_exit ? 'text-ok' : 'text-muted'}">{cfg.self_exit ? T('exitEffective') : T('exitNotEffective')}</span>
+            {/if}
             <button class="ml-auto rounded-md border border-line bg-surface px-2.5 py-1 text-xs text-danger hover:underline" onclick={unsetExit}>{T('disableExit')}</button>
           {:else}
             <button class="ml-auto rounded-md bg-brand px-2.5 py-1 text-xs text-white hover:bg-brand-strong" onclick={setAsExit}>{exitRoute ? T('approveExit') : T('makeExit')}</button>
