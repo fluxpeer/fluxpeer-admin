@@ -1,4 +1,5 @@
 <script>
+  import { onMount } from 'svelte'
   import { Plus, Trash2, RefreshCw, LogOut, LogIn, Settings, UserPlus, KeyRound, History, Pencil, X, Copy, Activity } from '@lucide/svelte'
   import { api, joinToken } from './api.js'
   import qrcode from 'qrcode-generator'
@@ -94,7 +95,11 @@
 
   async function guard(fn) {
     error = null
-    try { await fn() } catch (e) { if (e.status === 401) { authed = false; return } error = friendlyError(e) }
+    try { await fn() } catch (e) { reportError(e) }
+  }
+  function reportError(e) {
+    if (e.sessionExpired && !api.isAuthed()) { signOut(); return }
+    error = friendlyError(e)
   }
   function friendlyError(e) {
     const s = String(e)
@@ -111,7 +116,7 @@
     selected = n; lastInvite = null; drawer = null
     await guard(async () => { devices = await api.listDevices(n.id); await refreshStats(); await loadInvites() })
   }
-  async function loadInvites() { if (!selected) return; try { invites = await api.listInvites(selected.id) } catch (e) { /* non-fatal */ } }
+  async function loadInvites() { if (!selected) return; try { invites = await api.listInvites(selected.id) } catch (e) { if (e.status === 401 || e.status === 403) reportError(e) } }
   // An invite is used (consumed), expired, or still unused/redeemable.
   function inviteStatus(inv) {
     if (inv.uses > 0 && (inv.max_uses == null || inv.uses >= inv.max_uses)) return 'used'
@@ -142,7 +147,7 @@
       }
       stats = m
       rates = nr
-    } catch (e) { /* non-fatal */ }
+    } catch (e) { if (e.status === 401 || e.status === 403) reportError(e) }
   }
   async function makeInvite() {
     if (!selected) return
@@ -183,7 +188,7 @@
     })
   }
   function closeDrawer() { drawer = null }
-  async function loadRoutes() { if (!drawer) return; try { routes = await api.deviceRoutes(drawer.id) } catch (e) { /* non-fatal */ } }
+  async function loadRoutes() { if (!drawer) return; try { routes = await api.deviceRoutes(drawer.id) } catch (e) { if (e.status === 401 || e.status === 403) reportError(e) } }
   async function approveRoute(r) { await guard(async () => { await api.approveRoute(r.id); routes = await api.deviceRoutes(drawer.id); cfg = await api.deviceConfig(drawer.id) }) }
   async function removeRoute(r) { await guard(async () => { await api.deleteRoute(r.id); routes = await api.deviceRoutes(drawer.id); cfg = await api.deviceConfig(drawer.id) }) }
   async function loadDeviceStats() {
@@ -196,7 +201,7 @@
       }
       sample = { rx: s.rx_bytes, tx: s.tx_bytes, at: s.updated_at }
       dstats = s
-    } catch (e) { /* non-fatal */ }
+    } catch (e) { if (e.status === 401 || e.status === 403) reportError(e) }
   }
   async function renameDevice() {
     const name = (drawer?.renameVal ?? '').trim()
@@ -269,7 +274,9 @@
   }
   async function removeAdmin(u) { await guard(async () => { await api.deleteAdmin(u); admins = await api.listAdmins() }) }
 
-  if (authed) { loadNetworks(); api.me().then((r) => (me = r.username)).catch(() => {}) }
+  onMount(() => {
+    if (api.isAuthed()) { loadNetworks(); api.me().then((r) => (me = r.username)).catch(reportError) }
+  })
 
   // Poll the network traffic rollup every 5s while a network is selected.
   $effect(() => {

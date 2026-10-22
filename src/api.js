@@ -1,32 +1,49 @@
 // Thin control-server API client (/api/v1). In dev, Vite proxies /api → control-server.
-// Management calls carry a session token (from /admin/login) as a bearer; a 401
-// clears it so the app falls back to the login screen.
+// Management calls carry a session token from /admin/login. Only a confirmed
+// /admin/me 401 invalidates it; an endpoint-specific denial stays visible.
 const BASE = '/api/v1'
 const TKEY = 'fp_admin_token'
 
 let token = localStorage.getItem(TKEY) || ''
+let tokenRevision = 0
 
 function setToken(t) {
+  tokenRevision += 1
   token = t || ''
   if (token) localStorage.setItem(TKEY, token)
   else localStorage.removeItem(TKEY)
 }
 
 async function req(method, path, body) {
+  const requestToken = token
+  const revision = tokenRevision
   const opts = { method, headers: {} }
-  if (token) opts.headers['authorization'] = `Bearer ${token}`
+  if (requestToken) opts.headers['authorization'] = `Bearer ${requestToken}`
   if (body !== undefined) {
     opts.headers['content-type'] = 'application/json'
     opts.body = JSON.stringify(body)
   }
   const r = await fetch(`${BASE}${path}`, opts)
-  if (r.status === 401) {
-    setToken('')
-    const e = new Error('unauthorized')
-    e.status = 401
+  if (!r.ok) {
+    const e = new Error(`${method} ${path} → HTTP ${r.status}`)
+    e.status = r.status
+    e.sessionExpired = false
+    if (r.status === 401 && requestToken && path !== '/admin/login') {
+      let expired = path === '/admin/me'
+      if (!expired) {
+        try {
+          const session = await fetch(`${BASE}/admin/me`, { method: 'GET', headers: { authorization: `Bearer ${requestToken}` } })
+          expired = session.status === 401
+        } catch { /* A failed session probe cannot establish expiration. */ }
+      }
+      // A late denial from an older request must not clear a newer login.
+      if (expired && revision === tokenRevision) {
+        setToken('')
+        e.sessionExpired = true
+      }
+    }
     throw e
   }
-  if (!r.ok) throw new Error(`${method} ${path} → HTTP ${r.status}`)
   const text = await r.text()
   return text ? JSON.parse(text) : null
 }
