@@ -8,6 +8,10 @@ export const LANGS = [
 
 export const messages = {
   en: {
+    deleteNetwork: 'Delete network',
+    deleteNetworkWarning: 'Permanently delete this network and revoke every device?',
+    confirmNetworkId: 'Type the network ID to confirm deletion:',
+    revokeInviteWarning: 'Revoke this invite immediately?',
     networks: 'Networks',
     refresh: 'refresh',
     newNetwork: 'new network name',
@@ -114,6 +118,10 @@ export const messages = {
     editableSettings: 'Editable settings',
   },
   zh: {
+    deleteNetwork: 'Delete network',
+    deleteNetworkWarning: 'Permanently delete this network and revoke every device?',
+    confirmNetworkId: 'Type the network ID to confirm deletion:',
+    revokeInviteWarning: 'Revoke this invite immediately?',
     networks: '网络',
     refresh: '刷新',
     newNetwork: '新网络名称',

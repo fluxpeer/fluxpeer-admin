@@ -116,3 +116,16 @@ test('late session denial cannot invalidate a newer login', { timeout: 2000 }, a
   assert.equal(api.isAuthed(), true)
   assert.equal(storage.get('fp_admin_token'), 'session-new')
 })
+
+test('network deletion and invite revocation use authenticated scoped DELETE requests', async () => {
+  const { api } = await fixture()
+  const calls = []
+  globalThis.fetch = async (url, options) => { calls.push([url, options]); return new Response(null, { status: 204 }) }
+  await api.revokeInvite('net-1', 'code/#?')
+  await api.deleteNetwork('net-1')
+  assert.deepEqual(calls.map(([url]) => url), ['/api/v1/networks/net-1/invites/code%2F%23%3F', '/api/v1/networks/net-1'])
+  for (const [, options] of calls) {
+    assert.equal(options.method, 'DELETE')
+    assert.equal(options.headers.authorization, 'Bearer session-old')
+  }
+})

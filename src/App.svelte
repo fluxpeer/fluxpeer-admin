@@ -112,6 +112,27 @@
     if (!newNetName.trim()) return
     await guard(async () => { await api.createNetwork(newNetName.trim()); newNetName = ''; await loadNetworks() })
   }
+  async function deleteNetwork() {
+    const network = selected
+    if (!network || !confirm(`${T('deleteNetworkWarning')} ${network.name}`)) return
+    if (prompt(`${T('confirmNetworkId')} ${network.id}`) !== network.id) return
+    await guard(async () => {
+      await api.deleteNetwork(network.id)
+      if (selected?.id === network.id) { selected = null; devices = []; invites = []; lastInvite = null; drawer = null }
+      await loadNetworks()
+    })
+  }
+  async function revokeInvite(inv) {
+    const network = selected
+    if (!network || !confirm(T('revokeInviteWarning'))) return
+    await guard(async () => {
+      await api.revokeInvite(network.id, inv.code)
+      if (selected?.id === network.id) {
+        invites = invites.filter((item) => item.code !== inv.code)
+        if (lastInvite?.code === inv.code) lastInvite = null
+      }
+    })
+  }
   async function selectNetwork(n) {
     selected = n; lastInvite = null; drawer = null
     await guard(async () => { devices = await api.listDevices(n.id); await refreshStats(); await loadInvites() })
@@ -266,7 +287,7 @@
   async function changePassword() {
     pwMsg = null
     if (!oldPw || newPw.length < 4) { pwMsg = { ok: false }; return }
-    try { await api.changePassword(oldPw, newPw); oldPw = ''; newPw = ''; pwMsg = { ok: true } } catch (e) { pwMsg = { ok: false } }
+    try { await api.changePassword(oldPw, newPw); oldPw = ''; newPw = ''; pwMsg = { ok: true }; signOut() } catch (e) { pwMsg = { ok: false } }
   }
   async function addAdmin() {
     if (!newAdminUser.trim() || newAdminPass.length < 4) return
@@ -404,6 +425,7 @@
         <section>
           <div class="mb-3 flex flex-wrap items-center gap-2">
             <h2 class="text-sm font-semibold uppercase tracking-wide text-muted">{T('devices')} — {selected.name}</h2>
+            <button class="rounded-md border border-danger px-2 py-1 text-xs text-danger" onclick={deleteNetwork}>{T('deleteNetwork')}</button>
             <label class="ml-auto flex items-center gap-1 text-xs text-muted">{T('expiry')}
               <select class="rounded-md border border-line bg-surface px-2 py-1.5 text-sm text-fg" bind:value={inviteExpiry}>
                 <option value={60}>{T('min60')}</option>
@@ -426,6 +448,7 @@
                     {:else if inviteStatus(inv) === 'expired'}{@render pill(T('expired'), 'danger')}
                     {:else}{@render pill(T('unused'), 'ok')}{/if}
                     <span class="ml-auto text-muted">{expiryLabel(inv)}</span>
+                    <button class="rounded border border-line px-2 py-1 text-danger" onclick={() => revokeInvite(inv)}>{T('revoke')}</button>
                   </li>
                 {/each}
               </ul>
